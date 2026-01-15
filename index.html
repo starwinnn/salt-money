@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>盐系记账 SaltMoney</title>
+    <style>
+        /* --- 1. 盐系风格定义 (CSS) --- */
+        :root {
+            --bg-color: #F7F9FC;       /* 极淡灰蓝背景 */
+            --primary-color: #7A9E9F;  /* 莫兰迪绿主色 */
+            --text-dark: #4A4A4A;      /* 深灰字体 */
+            --text-light: #999999;     /* 浅灰字体 */
+            --card-bg: #FFFFFF;        /* 卡片白 */
+            --danger: #E57373;         /* 删除红 */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #E0E5EC; /* 浏览器外背景，深一点区分 */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* 手机容器模拟 */
+        #app-container {
+            width: 100%;
+            max-width: 420px; /* 限制最大宽度，像手机一样 */
+            background-color: var(--bg-color);
+            height: 100vh;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 头部导航 */
+        header {
+            padding: 20px;
+            background-color: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        h1 {
+            font-size: 20px;
+            color: var(--text-dark);
+            margin: 0;
+            font-weight: 600;
+        }
+
+        /* 列表区域 */
+        #content-area {
+            flex: 1;
+            overflow-y: auto; /* 允许滚动 */
+            padding: 0 16px 80px 16px; /* 底部留白给按钮 */
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .card-title {
+            font-size: 17px;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .card-price {
+            background: var(--bg-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* 详情页里的条目 */
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .item-row:last-child { border-bottom: none; }
+
+        .delete-btn {
+            color: var(--danger);
+            border: none;
+            background: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 8px;
+        }
+
+        /* 底部浮动按钮 */
+        .fab {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            background-color: var(--primary-color);
+            color: white;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            box-shadow: 0 4px 12px rgba(122, 158, 159, 0.4);
+            cursor: pointer;
+            border: none;
+        }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            display: none; /* 默认隐藏 */
+            align-items: flex-end; /* 底部弹出 */
+            z-index: 100;
+        }
+
+        .modal {
+            width: 100%;
+            background: white;
+            border-radius: 24px 24px 0 0;
+            padding: 24px;
+            box-sizing: border-box;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: var(--bg-color);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* 详情页底部总计栏 */
+        .detail-footer {
+            padding: 20px;
+            background: white;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+            border-radius: 24px 24px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 视图切换辅助 */
+        .hidden { display: none !important; }
+        .back-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-dark); margin-right: 10px;}
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            margin-top: 100px;
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <div id="view-home">
+        <header>
+            <h1>我的爱好清单 ☁️</h1>
+        </header>
+        <div id="hobby-list" class="content-area">
+            </div>
+        <button class="fab" onclick="openAddHobbyModal()">+</button>
+    </div>
+
+    <div id="view-detail" class="hidden" style="flex-direction: column; height: 100%;">
+        <header>
+            <div style="display:flex; align-items:center;">
+                <button class="back-btn" onclick="goBack()">❮</button>
+                <h1 id="detail-title">爱好名称</h1>
+            </div>
+            <button class="delete-btn" onclick="deleteCurrentHobby()" style="font-size:14px; color: #E57373;">删除此页</button>
+        </header>
+        
+        <div id="item-list" class="content-area" style="flex:1; overflow-y:auto; padding: 16px;">
+            </div>
+
+        <div class="detail-footer">
+            <div>
+                <div style="font-size:12px; color:var(--text-light)">总投入</div>
+                <div id="total-price" style="font-size:24px; font-weight:bold; color:var(--primary-color)">¥ 0.0</div>
+            </div>
+            <button class="btn-primary" style="width: auto; padding: 10px 24px; border-radius: 20px;" onclick="openAddItemModal()">记一笔</button>
+        </div>
+    </div>
+
+    <div id="modal-hobby" class="modal-overlay" onclick="closeModal(event, 'modal-hobby')">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3>添加新爱好</h3>
+            <input type="text" id="input-hobby-name" placeholder="比如：做手账、乐高...">
+            <button class="btn-primary" onclick="addHobby()">确定</button>
+        </div>
+    </div>
+
+    <div id="modal-item" class="modal-overlay" onclick="closeModal(event, 'modal-item')">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3>记一笔</h3>
+            <input type="text" id="input-item-name" placeholder="物品名称（如：贴纸）">
+            <input type="number" id="input-item-price" placeholder="价格 (¥)">
+            <button class="btn-primary" onclick="addItem()">确定</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // 数据结构：
+    // hobbies = [ { id: 123, name: "手账", items: [ {name: "胶带", price: 10} ] } ]
+    
+    let hobbies = [];
+    let currentHobbyId = null;
+
+    // 初始化：从浏览器缓存读取数据
+    window.onload = function() {
+        const savedData = localStorage.getItem('saltMoneyData');
+        if (savedData) {
+            hobbies = JSON.parse(savedData);
+        }
+        renderHobbyList();
+    };
+
+    // 保存数据
+    function saveData() {
+        localStorage.setItem('saltMoneyData', JSON.stringify(hobbies));
+    }
+
+    // --- 首页逻辑 ---
+
+    function renderHobbyList() {
+        const listEl = document.getElementById('hobby-list');
+        listEl.innerHTML = ''; // 清空
+
+        if (hobbies.length === 0) {
+            listEl.innerHTML = '<div class="empty-state">还没有爱好哦<br>去添加一个吧~</div>';
+            return;
+        }
+
+        hobbies.forEach(hobby => {
+            const total = hobby.items.reduce((sum, item) => sum + item.price, 0);
+            
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.onclick = () => openDetail(hobby.id);
+            card.innerHTML = `
+                <div class="card-title">${hobby.name}</div>
+                <div class="card-price">¥ ${total.toFixed(1)}</div>
+            `;
+            listEl.appendChild(card);
+        });
+    }
+
+    function addHobby() {
+        const nameInput = document.getElementById('input-hobby-name');
+        const name = nameInput.value.trim();
+        if (name) {
+            const newHobby = {
+                id: Date.now(), // 用时间戳做ID
+                name: name,
+                items: []
+            };
+            hobbies.push(newHobby);
+            saveData();
+            renderHobbyList();
+            nameInput.value = '';
+            closeModal(null, 'modal-hobby');
+        }
+    }
+
+    // --- 详情页逻辑 ---
+
+    function openDetail(id) {
+        currentHobbyId = id;
+        const hobby = hobbies.find(h => h.id === id);
+        
+        document.getElementById('view-home').classList.add('hidden');
+        document.getElementById('view-detail').classList.remove('hidden');
+        document.getElementById('view-detail').style.display = 'flex'; // 恢复flex布局
+        
+        document.getElementById('detail-title').innerText = hobby.name;
+        renderItems(hobby);
+    }
+
+    function goBack() {
+        document.getElementById('view-detail').classList.add('hidden');
+        document.getElementById('view-home').classList.remove('hidden');
+        currentHobbyId = null;
+        renderHobbyList(); // 刷新首页金额
+    }
+
+    function renderItems(hobby) {
+        const listEl = document.getElementById('item-list');
+        listEl.innerHTML = '';
+        
+        // 生成物品列表
+        if(hobby.items.length === 0) {
+            listEl.innerHTML = '<div class="empty-state">记下一笔开销吧 📝</div>';
+        } else {
+            hobby.items.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'card'; // 复用card样式但改一点
+                row.style.marginBottom = '8px';
+                row.innerHTML = `
+                    <span style="font-size:16px">${item.name}</span>
+                    <div style="display:flex; align-items:center">
+                        <span style="color:var(--text-light); margin-right:10px">- ¥${item.price.toFixed(1)}</span>
+                        <button class="delete-btn" onclick="deleteItem(event, ${index})">×</button>
+                    </div>
+                `;
+                // 阻止点击行触发其他事件
+                row.onclick = (e) => e.stopPropagation();
+                listEl.appendChild(row);
+            });
+        }
+
+        // 计算总价
+        const total = hobby.items.reduce((sum, item) => sum + item.price, 0);
+        document.getElementById('total-price').innerText = '¥ ' + total.toFixed(2);
+    }
+
+    function addItem() {
+        const nameInput = document.getElementById('input-item-name');
+        const priceInput = document.getElementById('input-item-price');
+        const name = nameInput.value.trim();
+        const price = parseFloat(priceInput.value);
+
+        if (name && !isNaN(price)) {
+            const hobby = hobbies.find(h => h.id === currentHobbyId);
+            hobby.items.push({ name: name, price: price });
+            saveData();
+            renderItems(hobby);
+            
+            // 清空并关闭
+            nameInput.value = '';
+            priceInput.value = '';
+            closeModal(null, 'modal-item');
+        }
+    }
+
+    function deleteItem(event, itemIndex) {
+        event.stopPropagation(); // 防止冒泡
+        if(confirm('确定删除这条记录吗？')) {
+            const hobby = hobbies.find(h => h.id === currentHobbyId);
+            hobby.items.splice(itemIndex, 1);
+            saveData();
+            renderItems(hobby);
+        }
+    }
+    
+    function deleteCurrentHobby() {
+        if(confirm('确定删除整个爱好和所有记录吗？不可恢复哦。')) {
+            const index = hobbies.findIndex(h => h.id === currentHobbyId);
+            hobbies.splice(index, 1);
+            saveData();
+            goBack();
+        }
+    }
+
+    // --- 弹窗控制 ---
+
+    function openAddHobbyModal() {
+        document.getElementById('modal-hobby').style.display = 'flex';
+        document.getElementById('input-hobby-name').focus();
+    }
+
+    function openAddItemModal() {
+        document.getElementById('modal-item').style.display = 'flex';
+        document.getElementById('input-item-name').focus();
+    }
+
+    function closeModal(event, modalId) {
+        // 如果是点击背景，或者显式调用
+        if (!event || event.target.id === modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+    }
+</script>
+</body>
+</html>
